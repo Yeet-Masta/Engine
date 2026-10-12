@@ -1,0 +1,102 @@
+{
+  "name": "Economy hatchback, 1.6 L inline-4",
+  "description": "Naturally aspirated 1.6 L DOHC inline-4 with a flat-plane crank, 4-2-1 header, catalyst, resonator and a chambered muffler. Even 180 degree firing: two pulses per revolution, a buzzy, thin and quiet tone.",
+  "simulation": { "substeps": 2, "start_running": true },
+  "engine": {
+    "bore": 0.081,
+    "stroke": 0.077,
+    "rod_length": 0.132,
+    "compression_ratio": 10.5,
+    "banks": [ { "angle": 0, "name": "inline" } ],
+    "throws": [0, 180, 180, 0],
+    "cylinders": [
+      { "bank": 0, "throw": 0 },
+      { "bank": 0, "throw": 1 },
+      { "bank": 0, "throw": 2 },
+      { "bank": 0, "throw": 3 }
+    ],
+    "firing_order": [1, 3, 4, 2],
+    "reciprocating_mass": 0.42,
+    "inertia": 0.11,
+    "idle_rpm": 750,
+    "redline_rpm": 6500,
+    "intake_valve":  { "open": 8,  "close": 44, "lift": 0.0085, "diameter": 0.031, "count": 2, "cd": 0.62 },
+    "exhaust_valve": { "open": 42, "close": 8,  "lift": 0.0080, "diameter": 0.026, "count": 2, "cd": 0.62 },
+    "intake_port_volume": 0.00006,
+    "exhaust_port_volume": 0.00004,
+    "combustion": {
+      "afr": 14.7, "afr_wot": 12.9, "efficiency": 0.9, "burn_duration": 52,
+      "variation": 0.04, "spark_load_retard": 6
+    },
+    "friction": { "a": 72, "b": 3.8, "c": 0.22, "accessory": 4 },
+    "starter": { "torque": 55, "free_rpm": 300 },
+    "idle": { "bypass_diameter": 0.012, "base": 0.08 },
+    "limiter": { "rpm": 6800, "hysteresis": 120, "mode": "fuel_cut", "launch_rpm": 3500 }
+  },
+  "intake": {
+    "throttle_diameter": 0.050,
+    "plenum_volume": 0.0030,
+    "airbox_volume": 0.008,
+    "runner_length": 0.36,
+    "runner_diameter": 0.036,
+    "snorkel_length": 0.30,
+    "snorkel_diameter": 0.065
+  },
+  "exhaust": {
+    "header_temperature": 980,
+    "tailpipe_temperature": 500,
+    "pipes": [
+      { "from": "cyl1", "to": "sec14", "length": 0.42, "diameter": 0.036 },
+      { "from": "cyl4", "to": "sec14", "length": 0.44, "diameter": 0.036 },
+      { "from": "cyl2", "to": "sec23", "length": 0.40, "diameter": 0.036 },
+      { "from": "cyl3", "to": "sec23", "length": 0.41, "diameter": 0.036 },
+      { "from": "sec14", "to": "collector", "length": 0.30, "diameter": 0.042 },
+      { "from": "sec23", "to": "collector", "length": 0.30, "diameter": 0.042 },
+      { "from": "collector", "to": "cat_in", "length": 0.25, "diameter": 0.046 },
+      { "from": "cat_in", "to": "cat_out", "length": 0.16, "diameter": 0.110, "kind": "catalyst" },
+      { "from": "cat_out", "to": "mid", "length": 1.30, "diameter": 0.045 },
+      { "from": "mid", "to": "res_in", "length": 0.40, "diameter": 0.045 },
+      { "from": "res_in", "to": "res_out", "length": 0.32, "diameter": 0.090, "kind": "absorptive", "damping": 0.55 },
+      { "from": "res_out", "to": "muf_in", "length": 0.90, "diameter": 0.045 },
+      { "from": "muf_in", "to": "muf_a", "length": 0.18, "diameter": 0.150 },
+      { "from": "muf_a", "to": "muf_b", "length": 0.16, "diameter": 0.035 },
+      { "from": "muf_b", "to": "muf_out", "length": 0.18, "diameter": 0.150, "kind": "absorptive", "damping": 0.3 },
+      { "from": "muf_out", "to": "tail", "length": 0.35, "diameter": 0.042 }
+    ],
+    "resonators": [
+      { "kind": "helmholtz", "at": "mid", "volume": 0.0035, "neck_length": 0.07, "neck_diameter": 0.032, "damping": 0.12 }
+    ],
+    "restrictions": [
+      { "node": "cat_out", "dp_ref": 2500, "flow_ref": 0.08 }
+    ],
+    "outlets": [ { "node": "tail", "pan": 0.35 } ]
+  },
+  "drivetrain": {
+    "gear_ratios": [3.55, 1.90, 1.31, 0.97, 0.76],
+    "reverse_ratio": 3.25,
+    "final_drive": 4.06,
+    "clutch_max_torque": 260,
+    "input_inertia": 0.012,
+    "shift_time": 0.25,
+    "synchro_torque": 70,
+    "shaft_stiffness": 7000,
+    "shaft_damping": 180,
+    "gear_teeth": 21
+  },
+  "vehicle": {
+    "mass": 1150,
+    "wheel_radius": 0.29,
+    "wheel_inertia": 1.8,
+    "drag_coefficient": 0.31,
+    "frontal_area": 2.05,
+    "rolling_resistance": 0.011,
+    "drive": "fwd",
+    "driven_axle_load": 0.61,
+    "cg_height": 0.52,
+    "wheelbase": 2.55
+  },
+  "audio": {
+    "master_gain": 1.6,
+    "listener": "exhaust"
+  }
+}

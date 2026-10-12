@@ -1,0 +1,7 @@
+*.wav
+/enginesound
+/enginesound.exe
+/bench/bench
+/bench/bench.exe
+*.tmp.c
+/renders/

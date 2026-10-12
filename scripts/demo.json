@@ -1,0 +1,22 @@
+{
+  "name": "demo: idle, free revs, limiter, pull through the gears, shifts and lift-off",
+  "duration": 30,
+  "events": [
+    { "t": 0.0, "throttle": 0, "note": "idle" },
+    { "t": 2.0, "throttle": 0.35, "note": "light blip" },
+    { "t": 2.35, "throttle": 0 },
+    { "t": 3.5, "throttle": 1.0, "note": "free rev to the limiter" },
+    { "t": 5.2, "throttle": 0 },
+    { "t": 7.0, "gear": 1, "note": "first gear, launch" },
+    { "t": 7.6, "throttle": 1.0 },
+    { "t": 10.5, "shift": "up" },
+    { "t": 10.8, "throttle": 1.0 },
+    { "t": 14.5, "shift": "up" },
+    { "t": 14.8, "throttle": 1.0 },
+    { "t": 19.5, "throttle": 0.0, "note": "lift off: overrun" },
+    { "t": 22.0, "shift": "down", "note": "rev-matched downshift" },
+    { "t": 24.0, "throttle": 0.3 },
+    { "t": 26.0, "throttle": 0.0, "brake": 0.6 },
+    { "t": 29.0, "brake": 0 }
+  ]
+}
