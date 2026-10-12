@@ -84,6 +84,14 @@ pub fn exhaust_spec(cfg config.Config) !NetworkSpec {
 		if p.kind == 'catalyst' && damping <= 0 {
 			damping = 0.6
 		}
+		// broadband attenuation of oscillations (Np/m): walls, plus packing
+		// for absorptive sections and the porous brick of a catalyst
+		mut alpha := 0.04
+		if p.kind == 'absorptive' {
+			alpha += 1.5 * damping
+		} else if p.kind == 'catalyst' {
+			alpha += 1.5
+		}
 		pipes << PipeSpec{
 			from:     p.from
 			to:       p.to
@@ -91,6 +99,7 @@ pub fn exhaust_spec(cfg config.Config) !NetworkSpec {
 			diameter: p.diameter
 			temp:     temp
 			cutoff:   wall_loss_cutoff(length, p.diameter, damping)
+			alpha:    alpha
 		}
 	}
 	mut vols := []VolumeSpec{}
@@ -180,7 +189,8 @@ pub fn new_intake(cfg config.Config, fs f64) !IntakeSystem {
 		length:   ic.snorkel_length + 0.61 * ic.snorkel_diameter * 0.5
 		diameter: ic.snorkel_diameter
 		temp:     cfg.simulation.ambient_temperature
-		cutoff:   wall_loss_cutoff(ic.snorkel_length, ic.snorkel_diameter, 0.2)
+		cutoff:   wall_loss_cutoff(ic.snorkel_length, ic.snorkel_diameter, 0.4)
+		alpha:    1.0 // air filter element
 	}
 	for i in 0 .. ncyl {
 		pl := if nplen > 1 { cfg.engine.cylinders[i].bank } else { 0 }

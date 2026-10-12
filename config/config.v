@@ -125,8 +125,10 @@ pub mut:
 	// Open-loop bypass opening fraction at the idle point (the controller
 	// learns the rest).
 	base f64 = 0.1
-	// Extra opening held while off idle (on overrun or on the pedal).
+	// Extra opening while on the pedal, bled off after lifting.
 	dashpot f64 = 0.08
+	// Extra opening during deceleration fuel cut.
+	decel_air f64 = 0.5
 	// PID gains on the normalised rpm error (kd acts on rpm rate).
 	kp f64 = 0.3
 	ki f64 = 0.8

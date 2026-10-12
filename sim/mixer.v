@@ -6,7 +6,7 @@ import config
 import util
 
 // Pressure (Pa) that maps to digital full scale.
-const full_scale_pa = 12.0
+const full_scale_pa = 2.0
 const rho_air = 1.2
 
 // MicState holds the smoothed per-source gains of the active listener.
@@ -67,13 +67,13 @@ pub fn new_mixer(cfg config.Config, fs f64, fs_out f64, substeps int) Mixer {
 	a := cfg.audio
 	mut m := Mixer{
 		rng:          util.new_rng(cfg.simulation.seed ^ 0xA5A5)
-		noise_hp_l:   acoustics.new_biquad(.highpass, 900, 0.7, 0, fs)
-		noise_hp_r:   acoustics.new_biquad(.highpass, 900, 0.7, 0, fs)
+		noise_hp_l:   acoustics.new_biquad(.bandpass, 1800, 0.5, 0, fs)
+		noise_hp_r:   acoustics.new_biquad(.bandpass, 1800, 0.5, 0, fs)
 		hiss_bp:      acoustics.new_biquad(.bandpass, 2600, 0.6, 0, fs)
 		block_hp:     acoustics.new_biquad(.highpass, 500, 0.7, 0, fs)
 		block_bp1:    acoustics.new_biquad(.bandpass, 1250, 3.0, 0, fs)
 		block_bp2:    acoustics.new_biquad(.bandpass, 2900, 4.0, 0, fs)
-		click_bp:     acoustics.new_biquad(.bandpass, 5200, 9.0, 0, fs)
+		click_bp:     acoustics.new_biquad(.bandpass, 3300, 4.0, 0, fs)
 		road_lp:      acoustics.new_biquad(.lowpass, 450, 0.7, 0, fs)
 		wind_lp:      acoustics.new_biquad(.lowpass, 320, 0.6, 0, fs)
 		squeal_bp:    acoustics.new_biquad(.bandpass, 1050, 18.0, 0, fs)
@@ -155,7 +155,7 @@ fn (mut s Simulator) mix_step() bool {
 		ex_l += sig * gl
 		ex_r += sig * gr
 		f := math.abs(o.flow)
-		nz := m.rng.bipolar() * f * math.sqrt(f) * a.flow_noise * 4.0 * o.gain / m.ex_dist
+		nz := m.rng.bipolar() * f * math.sqrt(f) * a.flow_noise * 1.0 * o.gain / m.ex_dist
 		nz_l += nz * gl
 		nz_r += nz * gr
 	}
@@ -166,12 +166,12 @@ fn (mut s Simulator) mix_step() bool {
 	for o in s.intake.net.outlets {
 		intake += o.radiated * rho_air / (4.0 * math.pi * 1.0) / full_scale_pa
 	}
-	intake += m.hiss_bp.process(m.rng.bipolar() * s.intake.hiss * a.flow_noise * 6.0)
+	intake += m.hiss_bp.process(m.rng.bipolar() * s.intake.hiss * a.flow_noise * 0.6)
 	// --- mechanical: combustion/block noise, valvetrain, gears, starter ---
-	blk := m.block_hp.process(s.eng.block_signal * 4e-7 * a.combustion_noise)
+	blk := m.block_hp.process(s.eng.block_signal * 3e-6 * a.combustion_noise)
 	mut mech := m.block_bp1.process(blk) + 0.7 * m.block_bp2.process(blk)
-	mech += m.click_bp.process(s.eng.valve_click * 0.6 * a.valvetrain_noise +
-		m.rng.bipolar() * 0.0002 * math.abs(s.eng.omega) / 300.0 * a.valvetrain_noise)
+	mech += m.click_bp.process(s.eng.valve_click * 0.2 * a.valvetrain_noise +
+		m.rng.bipolar() * 0.00002 * math.abs(s.eng.omega) / 300.0 * a.valvetrain_noise)
 	whine_amp := (0.0006 + s.dtr.mesh_load / 400.0 * 0.004) * (if m.straight_cut { 5.0 } else { 1.0 })
 	if s.dtr.in_gear() {
 		mech += math.sin(s.dtr.gear_phase) * whine_amp * a.gear_whine

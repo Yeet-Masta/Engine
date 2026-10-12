@@ -59,6 +59,16 @@ pub mut:
 	y     f64 // mass-flow admittance A/c (kg/(s*Pa))
 	burned f64 // burned fraction of gas carried (1 exhaust, 0 intake)
 	lp_a  f64 // arrival filter coefficient
+	// Losses act on the oscillating part of the waves only (the slowly
+	// varying mean is tracked separately and passed unchanged), so mean mass
+	// flow is conserved while resonances are damped realistically.
+	loss_static f64 = 1.0 // per-traversal amplitude gain from walls/packing
+	gain        f64 = 1.0 // current gain incl. flow-dependent turbulence loss
+	mean_a      f64
+	mean_b      f64
+	mean_coef   f64
+	length      f64
+	diameter    f64
 	// Lowest allowed travelling-wave value (gauge Pa). Linear acoustics
 	// lets a rarefaction reflected off a closed end reach negative absolute
 	// pressure; a real gas cannot, so arriving waves saturate here.
@@ -83,14 +93,17 @@ pub fn new_pipe(length f64, diameter f64, temp f64, gamma f64, cutoff f64, fs f6
 	}
 	coef := if cutoff >= fs * 0.45 { 1.0 } else { 1.0 - math.exp(-2.0 * math.pi * cutoff / fs) }
 	return Pipe{
-		fwd:   new_delay_line(delay)
-		bwd:   new_delay_line(delay)
-		delay: delay
-		area:  area
-		c:     c
-		temp:  temp
-		y:     area / c
-		lp_a:  coef
+		fwd:       new_delay_line(delay)
+		bwd:       new_delay_line(delay)
+		delay:     delay
+		area:      area
+		c:         c
+		temp:      temp
+		y:         area / c
+		lp_a:      coef
+		mean_coef: 1.0 - math.exp(-2.0 * math.pi * 3.0 / fs)
+		length:    length
+		diameter:  diameter
 	}
 }
 
@@ -101,8 +114,30 @@ pub fn (mut p Pipe) read() {
 	xa := p.bwd.read(p.delay)
 	p.st_b += p.lp_a * (xb - p.st_b)
 	p.st_a += p.lp_a * (xa - p.st_a)
-	p.arr_b = if p.st_b < p.floor { p.floor } else { p.st_b }
-	p.arr_a = if p.st_a < p.floor { p.floor } else { p.st_a }
+	p.mean_b += p.mean_coef * (p.st_b - p.mean_b)
+	p.mean_a += p.mean_coef * (p.st_a - p.mean_a)
+	vb := p.mean_b + p.gain * (p.st_b - p.mean_b)
+	va := p.mean_a + p.gain * (p.st_a - p.mean_a)
+	p.arr_b = if vb < p.floor { p.floor } else { vb }
+	p.arr_a = if va < p.floor { p.floor } else { va }
+}
+
+// update_losses refreshes the flow-dependent part of the loss from the mean
+// flow Mach number (turbulent friction ~ f_D * M / D per metre). Called
+// every few dozen steps.
+pub fn (mut p Pipe) update_losses(p_amb f64) {
+	mdot := (p.mean_b - p.mean_a) * p.y
+	rho := (p_amb + p.mean_a + p.mean_b) / (287.0 * p.temp)
+	mach := if rho > 1e-3 { math.abs(mdot) / (rho * p.area * p.c) } else { 0.0 }
+	alpha := 0.01 * mach / p.diameter
+	p.gain = p.loss_static * math.exp(-alpha * p.length)
+}
+
+// mean_mach returns the Mach number of the mean flow in the pipe.
+pub fn (p &Pipe) mean_mach(p_amb f64) f64 {
+	mdot := (p.mean_b - p.mean_a) * p.y
+	rho := (p_amb + p.mean_a + p.mean_b) / (287.0 * p.temp)
+	return if rho > 1e-3 { math.abs(mdot) / (rho * p.area * p.c) } else { 0.0 }
 }
 
 // write injects the outgoing waves computed by the end nodes.
@@ -133,6 +168,15 @@ pub fn (mut p Pipe) preload(gauge f64) {
 	p.bwd.fill(gauge * 0.5)
 	p.st_a = gauge * 0.5
 	p.st_b = gauge * 0.5
+	p.mean_a = gauge * 0.5
+	p.mean_b = gauge * 0.5
+}
+
+// set_static_loss sets the per-traversal amplitude gain from wall friction
+// and absorption, given an attenuation `alpha` in nepers per metre.
+pub fn (mut p Pipe) set_static_loss(alpha f64) {
+	p.loss_static = math.exp(-alpha * p.length)
+	p.gain = p.loss_static
 }
 
 // wall_loss_cutoff estimates a cutoff frequency for a pipe's loss filter from

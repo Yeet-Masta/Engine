@@ -54,6 +54,14 @@ pub fn (mut e Ecu) update(dt f64, rpm f64, map_ratio f64, inp EcuInputs) {
 	pedal := util.clamp(inp.pedal + inp.blip, 0.0, 1.0)
 	e.plate = pedal
 	e.running = rpm > idle * 0.5
+	// --- overrun: fuel cut, or crackle map when an afterfire tune is set ---
+	overrun_on := pedal < 0.01 && rpm > idle + 1000
+	overrun_off := pedal >= 0.01 || rpm < idle + 400
+	if overrun_on {
+		e.overrun = true
+	} else if overrun_off {
+		e.overrun = false
+	}
 	// --- idle air control ---
 	// PI(D) on the normalised rpm error in the idle band; above it (overrun or
 	// on the pedal) the valve holds its learned position plus a dashpot so
@@ -74,7 +82,11 @@ pub fn (mut e Ecu) update(dt f64, rpm f64, map_ratio f64, inp EcuInputs) {
 	} else {
 		e.dash = c.idle.dashpot
 	}
-	if off_pedal {
+	if off_pedal && e.overrun {
+		// decel fuel cut: hold the valve at its decel position so the
+		// manifold sits near 20 kPa instead of hard vacuum
+		e.bypass = util.clamp(c.idle.base + e.integral + c.idle.decel_air + e.dash, 0.02, 1.0)
+	} else if off_pedal {
 		// The integrator only learns inside the idle band (no wind-up on
 		// overrun); the proportional and damping terms always act, so a
 		// too-generous base opening can't hang the idle high.
@@ -119,14 +131,6 @@ pub fn (mut e Ecu) update(dt f64, rpm f64, map_ratio f64, inp EcuInputs) {
 		}
 	} else {
 		e.limiter_cut = false
-	}
-	// --- overrun: fuel cut, or crackle map when an afterfire tune is set ---
-	overrun_on := pedal < 0.01 && rpm > idle + 1000
-	overrun_off := pedal >= 0.01 || rpm < idle + 400
-	if overrun_on {
-		e.overrun = true
-	} else if overrun_off {
-		e.overrun = false
 	}
 	e.retard_crack = e.overrun && c.combustion.afterfire > 0
 	overrun_cut := e.overrun && c.combustion.overrun_fuel_cut && !e.retard_crack

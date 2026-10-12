@@ -58,6 +58,8 @@ pub mut:
 	prev_flow f64
 	inv_rho   f64 // 1 / gas density at the outlet (m^3/kg)
 	radiated  f64 // dU/dt (m^3/s^2): monopole source strength
+	r_flow    f64 = 1.0 // reflection magnitude reduction from mean flow
+	pipe      int
 }
 
 // PipeSpec describes one waveguide in a network.
@@ -69,6 +71,7 @@ pub:
 	diameter f64
 	temp     f64 // K
 	cutoff   f64 // loss filter cutoff (Hz)
+	alpha    f64 = 0.04 // broadband attenuation of oscillations (Np/m)
 }
 
 pub struct VolumeSpec {
@@ -136,6 +139,7 @@ pub mut:
 	gamma     f64
 	node_ids  map[string]int
 	port_node []int
+	count     u64
 }
 
 // new_network builds a network from a spec at simulation rate `fs`.
@@ -152,6 +156,7 @@ pub fn new_network(spec NetworkSpec, fs f64) !Network {
 		b := n.node_id(ps.to)
 		pi := n.pipes.len
 		n.pipes << new_pipe(ps.length, ps.diameter, ps.temp, n.gamma, ps.cutoff, fs)
+		n.pipes[pi].set_static_loss(ps.alpha)
 		n.pipes[pi].burned = spec.burned
 		n.pipes[pi].floor = -(spec.p_amb - 2000.0) * 0.5
 		n.nodes[a].ends << End{pi, 0}
@@ -190,6 +195,7 @@ pub fn new_network(spec NetworkSpec, fs f64) !Network {
 			gain:    os.gain
 			lp:      new_lowpass1(fc, fs)
 			inv_rho: gas.r_gas * pipe.temp / spec.p_amb
+			pipe:    n.nodes[id].ends[0].pipe
 		}
 	}
 	for rs in spec.restrictions {
@@ -251,6 +257,17 @@ fn (mut n Network) node_id(name string) int {
 // accumulators (filled by valve/throttle flows) are consumed here.
 @[direct_array_access]
 pub fn (mut n Network) step() {
+	n.count++
+	if n.count % 64 == 0 {
+		for mut p in n.pipes {
+			p.update_losses(n.p_amb)
+		}
+		for mut o in n.outlets {
+			m := n.pipes[o.pipe].mean_mach(n.p_amb)
+			mm := if m > 0.6 { 0.6 } else { m }
+			o.r_flow = (1.0 - mm) / (1.0 + mm)
+		}
+	}
 	for mut p in n.pipes {
 		p.read()
 	}
@@ -360,7 +377,9 @@ fn (mut n Network) step_open(i int) {
 	mut pipe := &n.pipes[e.pipe]
 	a := pipe.arriving(e.side)
 	mut o := &n.outlets[node.outlet]
-	out := -o.lp.process(a)
+	// Mean flow leaving a pipe sheds vortices that absorb low-frequency
+	// sound: |R| ~ (1 - M) / (1 + M).
+	out := -o.lp.process(a) * o.r_flow
 	pipe.set_outgoing(e.side, out)
 	node.p = a + out
 	flow := (a - out) * pipe.y
